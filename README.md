@@ -13,6 +13,7 @@ Command-line tool that downloads YouTube lecture transcripts, refines them with 
 
 ## Usage
 ```bash
+# Help
 python cli.py --help
 
 # Most common usage:
