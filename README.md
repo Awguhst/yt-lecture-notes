@@ -1,14 +1,14 @@
 # YT Lecture Notes Generator
 
-Command-line tool that downloads YouTube lecture transcripts, refines them with Gemini AI, classifies the subject, and generates beautiful, subject-specific LaTeX lecture notes (with optional PDF compilation).
+Command-line tool that downloads YouTube lecture transcripts, refines them with Gemini AI, classifies the subject, and generates subject-specific LaTeX lecture notes (with optional PDF compilation).
 
 ## Features
 
 - Fetches full transcript using YouTube Transcript API
-- Cleans & refines spoken transcript into proper written prose (Gemini 2.5 Flash)
+- Cleans & refines spoken transcript into structured text
 - Automatically detects lecture subject (Math, Physics, Programming, Chemistry, ML, General...)
 - Generates professional LaTeX notes tailored to each subject
-- Compiles LaTeX → PDF (using pdflatex)
+- Compiles LaTeX → PDF 
 - Creates separate folder per video (named by video ID)
 
 ## Usage
