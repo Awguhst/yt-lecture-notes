@@ -12,12 +12,13 @@ Command-line tool that downloads YouTube lecture transcripts, refines them with 
 - Creates separate folder per video (named by video ID)
 
 ## Usage
+```bash
 python cli.py --help
 
-### Most common usage:
+# Most common usage:
 python cli.py VIDEO_URL -k YOUR_API_KEY
 
-### Useful flags:
+# Useful flags:
   -k, --api-key       Your Gemini API key (required)
   -o, --output-dir    Custom output directory (default: creates lecture_{video_id}/)
       --no-pdf        Generate only .tex file (skip PDF compilation)
