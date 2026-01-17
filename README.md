@@ -14,10 +14,10 @@ Command-line tool that downloads YouTube lecture transcripts, refines them with 
 ## Usage
 ```bash
 # Help
-python cli.py --help
+python main.py --help
 
 # Most common usage:
-python cli.py VIDEO_URL -k YOUR_API_KEY
+python main.py VIDEO_URL -k YOUR_API_KEY
 
 # Useful flags:
   -k, --api-key       Your Gemini API key (required)
