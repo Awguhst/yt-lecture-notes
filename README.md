@@ -14,25 +14,16 @@ Command-line tool that downloads YouTube lecture transcripts, refines them with 
 ## Usage
 ```bash
 # Generate LaTeX + PDF lecture notes from a YouTube video
-python main.py "https://www.youtube.com/watch?v=dQw4w9WgXcQ" \
-    -k YOUR_API_KEY
+python main.py "https://www.youtube.com/watch?v=dQw4w9WgXcQ" -k YOUR_API_KEY
 
 # Specify a custom output directory
-python main.py "https://www.youtube.com/watch?v=dQw4w9WgXcQ" \
-    -k YOUR_API_KEY \
-    -o ./my_notes
+python main.py "https://www.youtube.com/watch?v=dQw4w9WgXcQ" -k YOUR_API_KEY -o ./my_notes
 
 # Generate only LaTeX (skip PDF)
-python main.py "https://www.youtube.com/watch?v=dQw4w9WgXcQ" \
-    -k YOUR_API_KEY \
-    --no-pdf
+python main.py "https://www.youtube.com/watch?v=dQw4w9WgXcQ" -k YOUR_API_KEY --no-pdf
 
 # Show progress messages (verbose)
-python main.py "https://www.youtube.com/watch?v=dQw4w9WgXcQ" \
-    -k YOUR_API_KEY \
-    -v
+python main.py "https://www.youtube.com/watch?v=dQw4w9WgXcQ" -k YOUR_API_KEY -v
 
 # Show detailed debug output
-python main.py "https://www.youtube.com/watch?v=dQw4w9WgXcQ" \
-    -k YOUR_API_KEY \
-    --debug
+python main.py "https://www.youtube.com/watch?v=dQw4w9WgXcQ" -k YOUR_API_KEY --debug
