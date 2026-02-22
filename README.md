@@ -13,15 +13,26 @@ Command-line tool that downloads YouTube lecture transcripts, refines them with 
 
 ## Usage
 ```bash
-# Help
-python main.py --help
+# Generate LaTeX + PDF lecture notes from a YouTube video
+python main.py "https://www.youtube.com/watch?v=dQw4w9WgXcQ" \
+    -k YOUR_API_KEY
 
-# Most common usage:
-python main.py VIDEO_URL -k YOUR_API_KEY
+# Specify a custom output directory
+python main.py "https://www.youtube.com/watch?v=dQw4w9WgXcQ" \
+    -k YOUR_API_KEY \
+    -o ./my_notes
 
-# Useful flags:
-  -k, --api-key       Your Gemini API key (required)
-  -o, --output-dir    Custom output directory (default: creates lecture_{video_id}/)
-      --no-pdf        Generate only .tex file (skip PDF compilation)
-      --quiet         Show only final paths and errors
-      --debug         Very verbose output
+# Generate only LaTeX (skip PDF)
+python main.py "https://www.youtube.com/watch?v=dQw4w9WgXcQ" \
+    -k YOUR_API_KEY \
+    --no-pdf
+
+# Show progress messages (verbose)
+python main.py "https://www.youtube.com/watch?v=dQw4w9WgXcQ" \
+    -k YOUR_API_KEY \
+    -v
+
+# Show detailed debug output
+python main.py "https://www.youtube.com/watch?v=dQw4w9WgXcQ" \
+    -k YOUR_API_KEY \
+    --debug
