@@ -5,25 +5,8 @@ LectureForge is a Flask web app that turns any YouTube lecture into polished, su
 ## Setup
 
 ```bash
-<<<<<<< HEAD
 pip install -r requirements.txt
 python app.py
 ```
 
 Then open `http://localhost:5000`. A working [pdflatex](https://www.tug.org/texlive/) installation is required for PDF compilation.
-=======
-# Generate LaTeX + PDF lecture notes from a YouTube video
-python main.py "https://www.youtube.com/watch?v=dQw4w9WgXcQ" -k YOUR_API_KEY
-
-# Specify a custom output directory
-python main.py "https://www.youtube.com/watch?v=dQw4w9WgXcQ" -k YOUR_API_KEY -o ./my_notes
-
-# Generate only LaTeX (skip PDF)
-python main.py "https://www.youtube.com/watch?v=dQw4w9WgXcQ" -k YOUR_API_KEY --no-pdf
-
-# Show progress messages (verbose)
-python main.py "https://www.youtube.com/watch?v=dQw4w9WgXcQ" -k YOUR_API_KEY -v
-
-# Show detailed debug output
-python main.py "https://www.youtube.com/watch?v=dQw4w9WgXcQ" -k YOUR_API_KEY --debug
->>>>>>> dbd2f6cc556af28c219da79b6b62d40611bd839c
