@@ -1,38 +1,12 @@
-# YT Lecture Notes Generator
+# LectureForge
 
-Command-line tool that downloads YouTube lecture transcripts, refines them with Gemini AI, classifies the subject, and generates subject-specific LaTeX lecture notes (with optional PDF compilation).
+LectureForge is a Flask web app that turns any YouTube lecture into polished, subject-aware LaTeX notes and an optional compiled PDF. Paste a video URL and a Gemini API key, and the pipeline automatically fetches the transcript, refines it into clean prose, classifies the subject (Math, Physics, Programming, Chemistry, Machine Learning, or General), and generates professionally structured LaTeX — all downloadable from a clean browser UI.
 
-## Features
+## Setup
 
-- Fetches full transcript using YouTube Transcript API
-- Cleans & refines spoken transcript into structured text
-- Automatically detects lecture subject (Math, Physics, Programming, Chemistry, ML, General...)
-- Generates professional LaTeX notes tailored to each subject
-- Compiles LaTeX → PDF 
-- Creates separate folder per video (named by video ID)
-
-## Usage
 ```bash
-# Generate LaTeX + PDF lecture notes from a YouTube video
-python main.py "https://www.youtube.com/watch?v=dQw4w9WgXcQ" \
-    -k YOUR_API_KEY
+pip install -r requirements.txt
+python app.py
+```
 
-# Specify a custom output directory
-python main.py "https://www.youtube.com/watch?v=dQw4w9WgXcQ" \
-    -k YOUR_API_KEY \
-    -o ./my_notes
-
-# Generate only LaTeX (skip PDF)
-python main.py "https://www.youtube.com/watch?v=dQw4w9WgXcQ" \
-    -k YOUR_API_KEY \
-    --no-pdf
-
-# Show progress messages (verbose)
-python main.py "https://www.youtube.com/watch?v=dQw4w9WgXcQ" \
-    -k YOUR_API_KEY \
-    -v
-
-# Show detailed debug output
-python main.py "https://www.youtube.com/watch?v=dQw4w9WgXcQ" \
-    -k YOUR_API_KEY \
-    --debug
+Then open `http://localhost:5000`. A working [pdflatex](https://www.tug.org/texlive/) installation is required for PDF compilation.

@@ -1,0 +1,142 @@
+\documentclass{article}
+\usepackage{amsmath, amssymb, enumitem, hyperref, geometry, mhchem, chemfig}
+\geometry{a4paper, margin=1in}
+
+\title{Hydrocarbons: Classification and General Formulas}
+\author{}
+\date{\today}
+
+\begin{document}
+
+\maketitle
+
+\section{Introduction to Hydrocarbons}
+A hydrocarbon is a compound that contains only carbon and hydrogen atoms. For example, methane (\ce{CH4}) and ethane (\ce{C2H6}) are common hydrocarbons.
+
+\section{Classification of Hydrocarbons}
+
+Hydrocarbons can be broadly categorized into two main types: aliphatic and aromatic hydrocarbons.
+
+\subsection{Aliphatic Hydrocarbons}
+Aliphatic hydrocarbons include molecules such as alkanes, alkenes, and alkynes.
+\begin{itemize}
+    \item \textbf{Alkanes:} Contain only carbon-carbon single bonds.
+    \item \textbf{Alkenes:} Possess at least one carbon-carbon double bond (\ce{C=C}).
+    \item \textbf{Alkynes:} Contain at least one carbon-carbon triple bond (\ce{C#C}).
+\end{itemize}
+
+\subsection{Aromatic Hydrocarbons (Arenes)}
+Aromatic hydrocarbons are characterized by a special type of ring structure, the most popular example being the benzene ring. The benzene ring has three alternating double bonds within a six-membered carbon ring. Aromatic hydrocarbons are also known as arenes.
+
+\subsection{Saturated vs. Unsaturated Hydrocarbons}
+It is important to distinguish between saturated and unsaturated hydrocarbons.
+
+\subsubsection{Saturated Hydrocarbons}
+Saturated hydrocarbons are alkanes. They are "saturated" because they are completely filled with hydrogen atoms, meaning they have the maximum number of hydrogen atoms possible per carbon atom. Alkanes contain only single bonds (sigma bonds) between carbon atoms and are therefore saturated.
+
+\subsubsection{Unsaturated Hydrocarbons}
+Unsaturated hydrocarbons contain at least one pi bond, which means they have carbon-carbon double bonds, triple bonds, or aromatic rings.
+\begin{itemize}
+    \item Alkenes, with their carbon-carbon double bonds, are unsaturated.
+    \item Alkynes, with their carbon-carbon triple bonds, are also unsaturated.
+    \item Benzene rings, being aromatic, are another example of unsaturated hydrocarbons.
+\end{itemize}
+Thus, if a molecule contains any double or triple bonds, or an aromatic ring, it is an an unsaturated hydrocarbon; if it contains only single bonds, it is a saturated hydrocarbon. To reiterate, unsaturated hydrocarbons include alkenes, alkynes, and aromatic rings, while only alkanes are saturated.
+
+\section{Alkanes: Saturated Hydrocarbons}
+Alkanes are saturated hydrocarbons with the general formula \ce{C_nH_{2n+2}}.
+The first few alkanes are listed below.
+
+\begin{table}[h!]
+    \centering
+    \caption{First 10 Alkanes}
+    \begin{tabular}{|l|l|}
+        \hline
+        \textbf{Formula} & \textbf{Name} \\
+        \hline
+        \ce{CH4}  & Methane \\
+        \ce{C2H6} & Ethane \\
+        \ce{C3H8} & Propane \\
+        \ce{C4H10} & Butane \\
+        \ce{C5H12} & Pentane \\
+        \ce{C6H14} & Hexane \\
+        \ce{C7H16} & Heptane \\
+        \ce{C8H18} & Octane \\
+        \ce{C9H20} & Nonane \\
+        \ce{C10H22} & Decane \\
+        \hline
+    \end{tabular}
+\end{table}
+
+For those who need to know the first 20 alkanes:
+
+\begin{table}[h!]
+    \centering
+    \caption{Alkanes (\ce{C_{11}} to \ce{C_{20}})}
+    \begin{tabular}{|l|l|}
+        \hline
+        \textbf{Formula} & \textbf{Name} \\
+        \hline
+        \ce{C11H24} & Undecane \\
+        \ce{C12H26} & Dodecane \\
+        \ce{C13H28} & Tridecane \\
+        \ce{C14H30} & Tetradecane \\
+        \ce{C15H32} & Pentadecane (penta- for five, deca- for ten, 5+10=15) \\
+        \ce{C16H34} & Hexadecane \\
+        \ce{C17H36} & Heptadecane \\
+        \ce{C18H38} & Octadecane \\
+        \ce{C19H40} & Nonadecane (nona- for nine, deca- for ten, 9+10=19) \\
+        \ce{C20H42} & Icosane \\
+        \hline
+    \end{tabular}
+\end{table}
+
+\section{Alkenes: Unsaturated Hydrocarbons with Double Bonds}
+If an alkene contains only one double bond (one pi bond), its general formula is \ce{C_nH_{2n}}. For each additional double bond present in the alkene, the number of hydrogen atoms decreases by two. For example, if an alkene has two pi bonds, its formula would be \ce{C_nH_{2n-2}}.
+
+Consider 2-butene, which has four carbon atoms. Its general structure is \ce{CH3-CH=CH-CH3}.
+Counting the atoms, it has \ce{C4H8}. Here, $n=4$, and $2n = 2 \times 4 = 8$, which fits the \ce{C_nH_{2n}} formula. This specific example shows \textit{trans}-2-butene, where the two methyl groups are on opposite sides of the double bond. If it were \textit{cis}-2-butene, the methyl groups would be on the same side. The structures are shown below:
+\begin{center}
+    \textbf{\textit{trans}-2-butene:} \chemfig{CH_3-C(-[90]H)=[::-60]C(-[-90]H)-CH_3} \\[1em]
+    \textbf{\textit{cis}-2-butene:} \chemfig{CH_3-C(-[90]H)=[::60]C(-[90]H)-CH_3}
+\end{center}
+
+\section{Cycloalkanes}
+It is interesting to note that cycloalkanes, which are alkanes in a ring structure, also share the general formula \ce{C_nH_{2n}} if they contain one ring. If a cycloalkane has two rings, its formula becomes \ce{C_nH_{2n-2}}. For example, cyclopentane has the formula \ce{C5H10}.
+\begin{center}
+    \textbf{Cyclopentane (\ce{C5H10}):} \chemfig{*5(---)}
+\end{center}
+In cyclopentane, each carbon atom is bonded to two other carbon atoms and two hydrogen atoms, resulting in a total of five carbon atoms and ten hydrogen atoms.
+
+Let's compare this to a typical alkane like pentane, which has the formula \ce{C5H12} based on \ce{C_nH_{2n+2}}.
+\begin{center}
+    \textbf{Pentane (\ce{C5H12}):} \chemfig{CH_3-CH_2-CH_2-CH_2-CH_3}
+\end{center}
+Alkanes have the maximum number of hydrogens per carbon atom and are therefore saturated. Anytime a ring or a double bond is introduced into a molecule, two hydrogen atoms are lost. This is why alkenes and cycloalkanes are unsaturated; they do not have the maximum number of hydrogen atoms they could potentially have.
+
+\section{Alkynes: Unsaturated Hydrocarbons with Triple Bonds}
+If a triple bond is introduced, four hydrogen atoms are lost compared to the corresponding alkane. Alkynes, which contain a triple bond, have the chemical formula \ce{C_nH_{2n-2}}, assuming there is one triple bond.
+
+For example, acetylene (ethyne) is \ce{C2H2}. If we compare it to ethane (\ce{C2H6}), which has the same number of carbons, we see a difference of four hydrogen atoms ($6 - 2 = 4$).
+\begin{center}
+    \textbf{Acetylene (Ethyne) (\ce{C2H2}):} \chemfig{H-C#C-H} \\[1em]
+    \textbf{Ethane (\ce{C2H6}):} \chemfig{CH_3-CH_3}
+\end{center}
+Another example is 2-butyne, which has the structure \ce{CH3-C#C-CH3}.
+This molecule is \ce{C4H6}. Comparing it to butane (\ce{C4H10}), we again observe a difference of four hydrogen atoms ($10 - 6 = 4$).
+\begin{center}
+    \textbf{2-Butyne (\ce{C4H6}):} \chemfig{CH_3-C#C-CH_3} \\[1em]
+    \textbf{Butane (\ce{C4H10}):} \chemfig{CH_3-CH_2-CH_2-CH_2-CH_3}
+\end{center}
+
+\section{Summary of Hydrogen Loss}
+In summary:
+\begin{itemize}
+    \item Introducing a double bond or a ring results in the loss of two hydrogen atoms compared to a fully saturated acyclic alkane with the same number of carbons.
+    \item Introducing a triple bond results in the loss of four hydrogen atoms compared to a fully saturated acyclic alkane with the same number of carbons.
+\end{itemize}
+
+\section{Conclusion}
+Hydrocarbons are fundamental molecules in organic chemistry, defined simply as compounds containing only carbon and hydrogen atoms.
+
+\end{document}

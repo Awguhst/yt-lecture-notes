@@ -1,299 +1,340 @@
-from youtube_transcript_api import YouTubeTranscriptApi
-import re
-from google import genai
-from google.genai import types
-import subprocess
+from __future__ import annotations
+
+import logging
 import os
+import re
+import subprocess
 from pathlib import Path
 
-def extract_video_id(url: str) -> str | None:
-    """Extract YouTube video ID from various URL formats"""
-    import re
-    patterns = [
-        r'(?:v=|youtu\.be/)([a-zA-Z0-9_-]{11})',
-        r'/embed/([a-zA-Z0-9_-]{11})',
-        r'/v/([a-zA-Z0-9_-]{11})',
-    ]
-    for pattern in patterns:
-        match = re.search(pattern, url)
-        if match:
-            return match.group(1)
-    return None
+from google import genai
+from google.genai import types
+from youtube_transcript_api import YouTubeTranscriptApi
 
-def get_youtube_transcript(youtube_url: str, api_key: str) -> str:
-    video_id_match = re.search(r"(?:v=|\/)([0-9A-Za-z_-]{11}).*", youtube_url)
-    if not video_id_match:
-        return "Invalid YouTube URL"
-    
-    video_id = video_id_match.group(1)
+logger = logging.getLogger(__name__)
 
-    try:
-        ytt_api = YouTubeTranscriptApi()
-        fetched_transcript = ytt_api.fetch(video_id)          
-        transcript_list = fetched_transcript.to_raw_data()    
-        
-        raw_transcript = " ".join([entry['text'] for entry in transcript_list])
-        
-        refined_transcript = refine_transcript_for_notes(raw_transcript, api_key)
-        
-        return refined_transcript
+# ---------------------------------------------------------------------------
+# Constants
+# ---------------------------------------------------------------------------
 
-    except Exception as e:
-        return f"Error fetching transcript: {str(e)} (Common causes: no captions, private video, region-restricted, subtitles disabled)"
+_GEMINI_MODEL = "gemini-2.5-flash"
 
-def refine_transcript_for_notes(raw_transcript: str, api_key: str) -> str:
-    client = genai.Client(api_key=api_key)
-    
-    model_id = 'gemini-2.5-flash' 
+_SUBJECTS = ["Math", "Programming", "Chemistry", "Physics", "MachineLearning", "General"]
 
-    refine_prompt = """
-You are an expert academic editor. Your task is to take a raw transcript of a spoken lecture (from YouTube subtitles) and rewrite it into clean, concise, well-structured written prose suitable for creating high-quality lecture notes.
+_BASE_LATEX_RULES = """\
+RULES — FOLLOW EXACTLY:
+- Output ONLY valid LaTeX source code. No markdown, no code fences, no commentary.
+- Start the very first line with \\documentclass{article}.
+- End the very last line with \\end{document}.
+- Use packages: amsmath, amssymb, enumitem, hyperref, geometry"""
 
-Follow these rules strictly:
-- Remove all filler words (um, uh, you know, like, basically, right?, okay, so yeah, etc.)
-- Eliminate repetitions and false starts (e.g., "let's let's begin" → "let's begin")
-- Fix incomplete or run-on sentences into proper grammar
-- Improve flow and logical structure: group related ideas, create natural paragraphs
-- Keep all technical content, equations, examples, and explanations 100% accurate and intact
-- Convert informal spoken style into clear academic written style
-- Do NOT add new information or explanations — only rephrase and organize what's already said
-- Do NOT summarize or shorten drastically — preserve detail and length, just make it read smoothly
-- If code is mentioned, preserve it accurately
-- If math/equations are spoken (e.g., "x squared plus two x plus one"), write them naturally (e.g., "x² + 2x + 1")
+_SUBJECT_EXTRA: dict[str, str] = {
+    "Math": """\
+, mathtools, amsthm
+- Use display math (\\[ \\] or align) for important equations; number them when useful.
+- Define theorem-like environments (definition, theorem, lemma, proof) via amsthm.
+- Heavy use of proper math mode throughout.""",
 
-Output ONLY the refined transcript text. No introductions, no explanations, no markdown.
+    "Programming": """\
+, listings, xcolor
+- Configure \\lstset with sensible defaults (ttfamily, small, auto-detect language).
+- Wrap every code snippet in a lstlisting environment.
+- Explain code behaviour with itemize/enumerate.""",
 
-Raw transcript:
-""" + raw_transcript
-    
-    try:
-        response = client.models.generate_content(
-            model=model_id,
-            contents=refine_prompt,
-            config=types.GenerateContentConfig(
-                temperature=0.3,
-            )
-        )
-        
-        if not response.text:
-            print("Warning: Empty response. Falling back to raw.")
-            return raw_transcript
-        
-        refined = response.text.strip()
-    
-        refined = refined.replace('```', '').strip()
-        
-        return refined
-        
-    except Exception as e:
-        print(f"Refinement failed: {e}. Falling back to raw transcript.")
-        return raw_transcript
+    "Chemistry": """\
+, mhchem, chemfig
+- Use \\ce{} for all chemical formulas and equations.
+- Draw reaction schemes when described.
+- Use tables for periodic trends or experimental data.""",
 
-def classify_transcript_subject(transcript: str, api_key: str) -> str:
-    client = genai.Client(api_key=api_key)
-    model_id = 'gemini-2.5-flash'
+    "Physics": """\
+, siunitx, tikz
+- Use \\SI{}{} for all quantities with units.
+- Use proper vector notation (\\vec, \\hat).
+- Include tikz diagrams when the lecture describes a diagram.""",
 
-    categories = ["Math", "Programming", "Chemistry", "Physics", "MachineLearning", "General"]
+    "MachineLearning": """\
+, algorithm, algpseudocode, listings
+- Use math mode for loss functions, gradients, and model equations.
+- Wrap described algorithms in algorithm + algorithmic environments.
+- Use tikz for neural-network diagrams when described.""",
 
-    prompt = f"""Classify the main subject of this lecture into **exactly one** of these categories.
-Return **ONLY** the category name — nothing else, no explanation, no quotes, no prefix.
+    "General": "",   # base rules are sufficient
+}
 
-Categories: {', '.join(categories)}
 
-Lecture transcript (beginning):
-{transcript[:3500]}
+# ---------------------------------------------------------------------------
+# Client factory
+# ---------------------------------------------------------------------------
 
-Your answer must look exactly like this example:
-Physics
-""".strip()
+def make_client(api_key: str) -> genai.Client:
+    """Return a configured Gemini client.  Create once per job and pass around."""
+    return genai.Client(api_key=api_key)
+
+
+# ---------------------------------------------------------------------------
+# Stage 1 — fetch transcript
+# ---------------------------------------------------------------------------
+
+def get_youtube_transcript(url: str) -> str:
+    """Fetch the raw transcript from YouTube.
+
+    Returns:
+        Raw joined transcript string.
+
+    Raises:
+        ValueError: if the URL is invalid or has no captions.
+        RuntimeError: if the API call fails for any other reason.
+    """
+    video_id = _extract_video_id(url)
+    if not video_id:
+        raise ValueError(f"Could not extract a video ID from URL: {url!r}")
 
     try:
-        response = client.models.generate_content(
-            model=model_id,
-            contents=prompt,
-            config=types.GenerateContentConfig(
-                response_mime_type="text/plain", 
-                temperature=0.0, 
-            )
+        api = YouTubeTranscriptApi()
+        fetched = api.fetch(video_id)
+        entries = fetched.to_raw_data()
+        raw = " ".join(e["text"] for e in entries).strip()
+    except Exception as exc:
+        raise RuntimeError(
+            f"Failed to fetch transcript for video '{video_id}': {exc}\n"
+            "Common causes: no captions, private video, region-restricted, subtitles disabled."
+        ) from exc
+
+    if len(raw) < 200:
+        raise ValueError(
+            "Transcript is too short (< 200 characters). "
+            "The video may have no meaningful captions."
         )
 
-        text = response.text.strip()
-        for cat in categories:
-            if cat.lower() in text.lower():
-                print(f"Detected subject: {cat}")
-                return cat
+    logger.info("Fetched raw transcript (%d chars).", len(raw))
+    return raw
 
-        print(f"Unexpected output: {text!r} → fallback to General")
-        return "General"
 
-    except Exception as e:
-        print(f"Error: {e}")
-        return "General"
+# ---------------------------------------------------------------------------
+# Stage 2 — refine transcript
+# ---------------------------------------------------------------------------
 
-    except Exception as e:
-        print(f"Classification failed: {e}. Falling back to General.")
-        return "General"
+def refine_transcript(raw: str, client: genai.Client) -> str:
+    """Turn raw subtitle text into clean academic prose.
 
-def get_subject_prompt(subject: str) -> str:
-    base_packages = "amsmath, amssymb, enumitem, hyperref, geometry"
+    Raises:
+        RuntimeError: if the Gemini call fails.
+    """
+    prompt = (
+        "You are an expert academic editor. Rewrite the raw lecture transcript below "
+        "into clean, well-structured written prose suitable for high-quality lecture notes.\n\n"
+        "Rules:\n"
+        "- Remove filler words (um, uh, you know, like, basically, right?, okay, so yeah…)\n"
+        "- Eliminate repetitions and false starts\n"
+        "- Fix incomplete or run-on sentences\n"
+        "- Group related ideas into natural paragraphs\n"
+        "- Preserve ALL technical content, equations, and examples exactly\n"
+        "- Convert spoken math (\"x squared plus two x\") to symbols (x² + 2x)\n"
+        "- Do NOT add new information; do NOT summarise or shorten significantly\n"
+        "- Output ONLY the refined transcript text — no headings, no markdown\n\n"
+        f"Raw transcript:\n{raw}"
+    )
 
-    prompts = {
-        "Math": f"""
-Convert the following lecture transcript into clean, professional LaTeX lecture notes focused on mathematics.
-RULES - FOLLOW EXACTLY:
-- Output ONLY the LaTeX code.
-- Do NOT use markdown or code blocks.
-- Start directly with \\documentclass{{article}}
-- End with \\end{{document}}
-- Use packages: {base_packages}, mathtools, cancel, tikz (if diagrams needed)
-- Use display math ($$ or \\[ \\]) for important equations, align/environment for multi-line
-- Use theorem-like environments (definition, theorem, lemma, proof) via amsthm if useful
-- Number equations when appropriate
-- Make heavy use of proper math mode
-- Structure with sections, subsections, itemize/enumerate
-Transcript:
-""",
+    response = _call_gemini(client, prompt, temperature=0.3)
+    refined = _strip_fences(response)
 
-        "Programming": f"""
-Convert the following programming lecture transcript into clean LaTeX notes.
-RULES - FOLLOW EXACTLY:
-- Output ONLY the LaTeX code.
-- Start directly with \\documentclass{{article}}
-- End with \\end{{document}}
-- Use packages: {base_packages}, listings, xcolor
-- Use \\lstset for code styling (language=[language if detectable], basicstyle=\\ttfamily\\small, etc.)
-- Put code snippets in lstlisting environments
-- Explain concepts clearly with itemize/enumerate
-- Include comments from speech as explanations
-Transcript:
-""",
+    if not refined:
+        logger.warning("Refinement returned empty text; falling back to raw transcript.")
+        return raw
 
-        "Chemistry": f"""
-Convert the following chemistry lecture transcript into professional LaTeX notes.
-RULES - FOLLOW EXACTLY:
-- Output ONLY the LaTeX code.
-- Start directly with \\documentclass{{article}}
-- End with \\end{{document}}
-- Use packages: {base_packages}, mhchem, chemfig (for structures if mentioned)
-- Use \\ce{{}} for chemical equations and formulas
-- Draw reaction schemes if described
-- Use tables for periodic trends, data, etc.
-Transcript:
-""",
+    logger.info("Refined transcript (%d → %d chars).", len(raw), len(refined))
+    return refined
 
-        "Physics": f"""
-Convert the following physics lecture transcript into clean LaTeX notes.
-RULES - FOLLOW EXACTLY:
-- Output ONLY the LaTeX code.
-- Start directly with \\documentclass{{article}}
-- End with \\end{{document}}
-- Use packages: {base_packages}, siunitx, physunits, tikz (for diagrams)
-- Use \\si{{}} for units, proper vector notation
-- Heavy use of equations in display math
-- Include diagrams if described (using tikz if possible)
-Transcript:
-""",
 
-        "MachineLearning": f"""
-Convert the following machine learning/AI lecture transcript into LaTeX notes.
-RULES - FOLLOW EXACTLY:
-- Output ONLY the LaTeX code.
-- Start directly with \\documentclass{{article}}
-- End with \\end{{document}}
-- Use packages: {base_packages}, algorithm, algorithmicx, algpseudocode, listings
-- Use math mode extensively for loss functions, gradients, etc.
-- Include pseudocode in algorithm environments when explained
-- Use tikz for neural network diagrams if described
-Transcript:
-""",
+# ---------------------------------------------------------------------------
+# Stage 3 — generate LaTeX
+# ---------------------------------------------------------------------------
 
-        "General": f"""
-Convert the following lecture transcript into clean, structured LaTeX notes.
-RULES - FOLLOW EXACTLY:
-- Output ONLY the LaTeX code.
-- Start directly with \\documentclass{{article}}
-- End with \\end{{document}}
-- Use packages: {base_packages}
-- Use sections/subsections, itemize/enumerate, bold/italic
-- Use math mode when equations appear ($...$ or \\[ \\])
-- Be concise and well-organized
-Transcript:
-"""
-    }
+def generate_latex(transcript: str, client: genai.Client) -> str:
+    """Classify the transcript subject and generate subject-appropriate LaTeX.
 
-    return prompts.get(subject, prompts["General"])
+    Raises:
+        RuntimeError: if the Gemini call fails or returns empty content.
+    """
+    subject = _classify_subject(transcript, client)
+    logger.info("Detected subject: %s", subject)
 
-def generate_latex_notes(transcript: str, api_key: str) -> str:
-    client = genai.Client(api_key=api_key)
-    model_id = 'gemini-2.5-flash'
+    prompt = _build_latex_prompt(subject, transcript)
+    raw_latex = _call_gemini(client, prompt)
+    latex = _strip_fences(raw_latex)
 
-    subject = classify_transcript_subject(transcript, api_key)
-    
-    custom_prompt = get_subject_prompt(subject)
-    full_prompt = custom_prompt + transcript
-    
-    try:
-        response = client.models.generate_content(
-            model=model_id,
-            contents=full_prompt)
-       
-        if not response.text:
-            return "Error: No response from Gemini"
-       
-        latex_code = response.text.strip()
-       
-        if "```" in latex_code:
-            lines = latex_code.splitlines()
-            cleaned_lines = [line for line in lines if not line.strip().startswith('```')]
-            latex_code = '\n'.join(cleaned_lines).strip()
-       
-        return latex_code
+    if not latex or "\\documentclass" not in latex:
+        raise RuntimeError(
+            "Gemini did not return valid LaTeX. "
+            f"Response preview: {raw_latex[:300]!r}"
+        )
 
-    except Exception as e:
-        return f"Error during LaTeX generation: {str(e)}"
+    logger.info("Generated LaTeX (%d chars).", len(latex))
+    return latex
 
-def compile_latex_to_pdf(
-    latex_code: str,
+
+# ---------------------------------------------------------------------------
+# Stage 4 — compile PDF
+# ---------------------------------------------------------------------------
+
+def compile_pdf(
+    latex: str,
     filename: str = "lecture_notes",
-    output_dir: str | Path = "."
-):
+    output_dir: str | Path = ".",
+) -> Path:
+    """Compile a LaTeX string to PDF using pdflatex (two passes).
+
+    Args:
+        latex:      Full LaTeX source.
+        filename:   Base name (without extension) for output files.
+        output_dir: Directory in which to write all files.
+
+    Returns:
+        Path to the produced PDF.
+
+    Raises:
+        FileNotFoundError: if pdflatex is not installed.
+        RuntimeError:      if compilation fails (includes log tail for debugging).
+    """
     output_dir = Path(output_dir).resolve()
     output_dir.mkdir(parents=True, exist_ok=True)
 
     tex_file = output_dir / f"{filename}.tex"
     pdf_file = output_dir / f"{filename}.pdf"
+    log_file = output_dir / f"{filename}.log"
 
-    tex_file.write_text(latex_code, encoding="utf-8")
+    tex_file.write_text(latex, encoding="utf-8")
+    logger.info("Wrote %s.", tex_file)
+
+    original_cwd = os.getcwd()
     try:
-        original_cwd = os.getcwd()
-        os.chdir(output_dir)  
+        os.chdir(output_dir)
+        _run_pdflatex(filename)   # pass 1 — build structure
+        _run_pdflatex(filename)   # pass 2 — resolve cross-references
+    except subprocess.CalledProcessError as exc:
+        log_tail = _read_log_tail(log_file)
+        raise RuntimeError(
+            f"pdflatex failed on pass:\n{log_tail}"
+        ) from exc
+    except FileNotFoundError as exc:
+        raise FileNotFoundError(
+            "pdflatex not found. Install TeX Live (https://www.tug.org/texlive/) "
+            "or MiKTeX (https://miktex.org/)."
+        ) from exc
+    finally:
+        os.chdir(original_cwd)
 
-        for _ in range(2):
-            result = subprocess.run(
-                ["pdflatex", "-interaction=nonstopmode", f"{filename}.tex"],
-                check=True,
-                capture_output=True,
-                text=True
-            )
+    if not pdf_file.exists():
+        log_tail = _read_log_tail(log_file)
+        raise RuntimeError(f"pdflatex ran but produced no PDF.\n{log_tail}")
 
-        os.chdir(original_cwd)  
+    _remove_aux_files(output_dir, filename)
+    logger.info("PDF ready: %s", pdf_file)
+    return pdf_file
 
-        if pdf_file.exists():
-            print(f"PDF saved as: {pdf_file}")
-            
-            for ext in [".aux", ".log", ".out", ".toc", ".fls", ".fdb_latexmk"]:
-                path = output_dir / f"{filename}{ext}"
-                if path.exists():
-                    path.unlink()
-        else:
-            print("PDF was not created.")
 
-    except subprocess.CalledProcessError as e:
-        print("LaTeX compilation failed!")
-        print("Last error output:")
-        print(e.stderr or e.stdout)
-    except FileNotFoundError:
-        print("pdflatex not found. Please install LaTeX (TeX Live / MiKTeX / MacTeX)")
-        print("Download from: https://www.tug.org/texlive/ or https://miktex.org/")
-    except Exception as e:
-        print(f"Unexpected error during compilation: {e}")
+# ---------------------------------------------------------------------------
+# Private helpers
+# ---------------------------------------------------------------------------
+
+def _extract_video_id(url: str) -> str | None:
+    patterns = [
+        r"(?:v=|youtu\.be/)([a-zA-Z0-9_-]{11})",
+        r"/embed/([a-zA-Z0-9_-]{11})",
+        r"/v/([a-zA-Z0-9_-]{11})",
+    ]
+    for pattern in patterns:
+        m = re.search(pattern, url)
+        if m:
+            return m.group(1)
+    return None
+
+
+def _call_gemini(
+    client: genai.Client,
+    prompt: str,
+    temperature: float = 1.0,
+) -> str:
+    """Thin wrapper around Gemini generate_content with unified error handling."""
+    try:
+        response = client.models.generate_content(
+            model=_GEMINI_MODEL,
+            contents=prompt,
+            config=types.GenerateContentConfig(temperature=temperature),
+        )
+    except Exception as exc:
+        raise RuntimeError(f"Gemini API call failed: {exc}") from exc
+
+    if not response.text:
+        raise RuntimeError("Gemini returned an empty response.")
+
+    return response.text.strip()
+
+
+def _strip_fences(text: str) -> str:
+    """Remove markdown code fences that the model sometimes wraps output in."""
+    lines = [ln for ln in text.splitlines() if not ln.strip().startswith("```")]
+    return "\n".join(lines).strip()
+
+
+def _classify_subject(transcript: str, client: genai.Client) -> str:
+    """Return the best-matching subject category for the transcript."""
+    # Only the opening portion is needed for classification.
+    sample = transcript[:3500]
+    prompt = (
+        f"Classify the main subject of this lecture into exactly one of these categories:\n"
+        f"{', '.join(_SUBJECTS)}\n\n"
+        "Return ONLY the category name — no explanation, no quotes, nothing else.\n\n"
+        f"Lecture transcript (opening):\n{sample}"
+    )
+
+    try:
+        answer = _call_gemini(client, prompt, temperature=0.0)
+    except RuntimeError:
+        logger.warning("Subject classification failed; defaulting to General.")
+        return "General"
+
+    for subject in _SUBJECTS:
+        if subject.lower() in answer.lower():
+            return subject
+
+    logger.warning("Unexpected classification output %r; defaulting to General.", answer)
+    return "General"
+
+
+def _build_latex_prompt(subject: str, transcript: str) -> str:
+    extra = _SUBJECT_EXTRA.get(subject, "")
+    package_line = _BASE_LATEX_RULES + extra
+    return (
+        f"Convert the following {subject} lecture transcript into professional LaTeX notes.\n\n"
+        f"{package_line}\n"
+        "- Use sections/subsections and itemize/enumerate for structure.\n\n"
+        f"Transcript:\n{transcript}"
+    )
+
+
+def _run_pdflatex(filename: str) -> None:
+    subprocess.run(
+        ["pdflatex", "-interaction=nonstopmode", f"{filename}.tex"],
+        check=True,
+        capture_output=True,
+        text=True,
+    )
+
+
+def _read_log_tail(log_file: Path, lines: int = 40) -> str:
+    """Return the last `lines` lines of the pdflatex log, or a placeholder."""
+    if not log_file.exists():
+        return "(no log file found)"
+    text = log_file.read_text(encoding="utf-8", errors="replace")
+    return "\n".join(text.splitlines()[-lines:])
+
+
+def _remove_aux_files(directory: Path, stem: str) -> None:
+    for ext in (".aux", ".out", ".toc", ".fls", ".fdb_latexmk"):
+        f = directory / f"{stem}{ext}"
+        if f.exists():
+            try:
+                f.unlink()
+            except OSError:
+                pass  # non-fatal — leave the file in place
